@@ -113,3 +113,31 @@ local function startFollowing(distanceBehind)
     
     followConnection = RunService.RenderStepped:Connect(function()
         local targetPlayer = get
+local EnumState = {
+    CHASE = "CHASE",
+    DODGE = "DODGE"
+}
+
+local currentState = EnumState.CHASE
+
+-- 메인 루프 (서버 스크립트 또는 NPC AI)
+game:GetService("RunService").Heartbeat:Connect(function()
+    local target = getClosestPlayer()
+    if not target then return end
+
+    -- 1. 상대가 나를 조준/사격 중인지 감지
+    if isBeingAimedAt(target, myCharacter) then
+        currentState = EnumState.DODGE
+    else
+        currentState = EnumState.CHASE
+    end
+
+    -- 2. 상태에 따른 행동 수행
+    if currentState == EnumState.DODGE then
+        -- 사격 감지 시 옆으로 빠른 이동 (Velocitiy 또는 MoveTo)
+        dodgeToSide(myCharacter)
+    elseif currentState == EnumState.CHASE then
+        -- 평소에는 상대 뒤쪽 위치로 정상 이동
+        moveToTargetBehind(myCharacter, target)
+    end
+end)
