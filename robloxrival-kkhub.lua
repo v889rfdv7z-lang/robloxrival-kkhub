@@ -1,198 +1,152 @@
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
+local HttpService = game:GetService("HttpService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 
--- UI 생성
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KKHub_Rivals"
-ScreenGui.ResetOnSpawn = false
+--------------------------------------------------------------------------------
+-- 1. 두음법칙 변환 함수
+--------------------------------------------------------------------------------
+local function applyDooum(char)
+    local dooumMap = {
+        ["리"] = "이", ["륨"] = "윰", ["늄"] = "윰", ["라"] = "나", 
+        ["락"] = "낙", ["란"] = "난", ["람"] = "남", ["랑"] = "낭",
+        ["래"] = "내", ["랭"] = "냉", ["로"] = "노", ["론"] = "논"
+    }
+    return dooumMap[char] or char
+end
 
-pcall(function()
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end)
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 320, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -160, 0.5, -150)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
-
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 8)
-MainCorner.Parent = MainFrame
-
--- 타이틀 바
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 35)
-TitleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-TitleBar.BorderSizePixel = 0
-TitleBar.Parent = MainFrame
-
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 8)
-TitleCorner.Parent = TitleBar
-
-local TitleText = Instance.new("TextLabel")
-TitleText.Parent = TitleBar
-TitleText.Size = UDim2.new(1, -35, 1, 0)
-TitleText.Position = UDim2.new(0, 10, 0, 0)
-TitleText.BackgroundTransparency = 1
-TitleText.Text = "KK Hub v2 | Rivals Full Release"
-TitleText.TextColor3 = Color3.fromRGB(240, 240, 240)
-TitleText.TextSize = 14
-TitleText.Font = Enum.Font.SourceSansBold
-TitleText.TextXAlignment = Enum.TextXAlignment.Left
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Parent = TitleBar
-CloseBtn.Size = UDim2.new(0, 35, 1, 0)
-CloseBtn.Position = UDim2.new(1, -35, 0, 0)
-CloseBtn.BackgroundTransparency = 1
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(230, 80, 80)
-CloseBtn.TextSize = 16
-CloseBtn.Font = Enum.Font.SourceSansBold
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
-
--- 컨테이너
-local Container = Instance.new("ScrollingFrame")
-Container.Size = UDim2.new(1, -20, 1, -45)
-Container.Position = UDim2.new(0, 10, 0, 40)
-Container.BackgroundTransparency = 1
-Container.BorderSizePixel = 0
-Container.ScrollBarThickness = 4
-Container.Parent = MainFrame
-
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Parent = Container
-UIListLayout.Padding = UDim.new(0, 6)
-
--- 설정 변수
-local Settings = {
-    Aimbot = false,
-    ESP = false,
-    AutoDodge = false
-}
-
-local function CreateToggle(name, key)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -5, 0, 38)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
-    btn.Text = name .. " : OFF"
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 14
-    btn.Parent = Container
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
-
-    btn.MouseButton1Click:Connect(function()
-        Settings[key] = not Settings[key]
-        if Settings[key] then
-            btn.BackgroundColor3 = Color3.fromRGB(45, 140, 60)
-            btn.Text = name .. " : ON"
-            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        else
-            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
-            btn.Text = name .. " : OFF"
-            btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-        end
+--------------------------------------------------------------------------------
+-- 2. 외부 끝말잇기 검색 엔진 API 연동 (실시간 단어 수집)
+--------------------------------------------------------------------------------
+local function fetchWordsFromEngine(startChar)
+    local wordList = {}
+    -- 끝말잇기 단어 검색엔진 API endpoint (예시)
+    local url = "https://korean-word-api.vercel.app/api/words?start=" .. HttpService:UrlEncode(startChar)
+    
+    local success, response = pcall(function()
+        return game:HttpGet(url)
     end)
-end
-
--- 기능 토글 버튼 등록
-CreateToggle("Aimbot (에임 조준)", "Aimbot")
-CreateToggle("ESP (적 위치 표시)", "ESP")
-CreateToggle("Auto Dodge (자동 회피)", "AutoDodge")
-
----------------------------------------------------------
--- 기능 실행 로직
----------------------------------------------------------
-
--- 가장 가까운 적 찾기
-local function GetClosestTarget()
-    local closest, minDistance = nil, math.huge
-    local myChar = LocalPlayer.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
-            if onScreen then
-                local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-                if dist < minDistance then
-                    minDistance = dist
-                    closest = player.Character
-                end
-            end
+    
+    if success and response then
+        local data = HttpService:JSONDecode(response)
+        if data and data.words then
+            wordList = data.words -- 서버에서 검색된 단어 배열
         end
     end
-    return closest
+    
+    return wordList
 end
 
--- ESP (적 테두리 표시) 업데이트
-local highlights = {}
-local function UpdateESP()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            if Settings.ESP and player.Character:FindFirstChild("HumanoidRootPart") then
-                if not highlights[player] then
-                    local hl = Instance.new("Highlight")
-                    hl.FillColor = Color3.fromRGB(255, 50, 50)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.FillTransparency = 0.5
-                    hl.Parent = player.Character
-                    highlights[player] = hl
+--------------------------------------------------------------------------------
+-- 3. KKCBRP 수 읽기 엔진 (한방 / 유도 / 방어 계산)
+--------------------------------------------------------------------------------
+local function KKCBRP_CalculateBestWord(startChar)
+    -- 두음법칙 적용 글자까지 포함하여 탐색
+    local charsToSearch = {startChar, applyDooum(startChar)}
+    local candidateWords = {}
+
+    for _, char in ipairs(charsToSearch) do
+        local words = fetchWordsFromEngine(char)
+        for _, w in ipairs(words) do
+            table.insert(candidateWords, w)
+        end
+    end
+
+    if #candidateWords == 0 then return nil end
+
+    local bestWord = candidateWords[1]
+    local maxScore = -9999
+
+    for _, word in ipairs(candidateWords) do
+        -- 마지막 글자 추출
+        local lastChar = string.sub(word, -3) 
+        local enemyNextWords = fetchWordsFromEngine(lastChar)
+        local enemyResponseCount = #enemyNextWords
+
+        local score = 0
+
+        -- [1] 한방 단어 (상대가 낼 수 있는 단어가 0개인 경우)
+        if enemyResponseCount == 0 then
+            score = 10000
+        else
+            -- [2] 2수 앞 계산 (유도 및 루트 단어)
+            local canWinNextTurn = false
+            for _, eWord in ipairs(enemyNextWords) do
+                local eLastChar = string.sub(eWord, -3)
+                local myNextWords = fetchWordsFromEngine(eLastChar)
+                
+                -- 상대가 무슨 단어를 내든 내 다음 차례에 한방 단어가 존재하는지
+                for _, myW in ipairs(myNextWords) do
+                    local myLastChar = string.sub(myW, -3)
+                    if #fetchWordsFromEngine(myLastChar) == 0 then
+                        canWinNextTurn = true
+                        break
+                    end
                 end
+                if canWinNextTurn then break end
+            end
+
+            if canWinNextTurn then
+                score = 5000 -- 승리 유도/루트 단어
             else
-                if highlights[player] then
-                    highlights[player]:Destroy()
-                    highlights[player] = nil
-                end
+                -- [3] 방어 단어 (상대의 선택지를 최소화)
+                score = 100 - enemyResponseCount
             end
         end
+
+        if score > maxScore then
+            maxScore = score
+            bestWord = word
+        end
+    end
+
+    return bestWord
+end
+
+--------------------------------------------------------------------------------
+-- 4. 자동 입력 및 제출 기능
+--------------------------------------------------------------------------------
+local function getGameTextBox()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
+
+    for _, v in ipairs(playerGui:GetDescendants()) do
+        if v:IsA("TextBox") and v.Visible then
+            return v
+        end
+    end
+    return nil
+end
+
+local function AutoTypeAndSubmit(text)
+    local textBox = getGameTextBox()
+    if textBox then
+        textBox:CaptureFocus()
+        textBox.Text = text
+        
+        -- 엔터키(Return) 시뮬레이션
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+        print("[KKCBRP] 자동 입력 완료: " .. text)
     end
 end
 
--- 메인 루프 (RenderStepped)
-RunService.RenderStepped:Connect(function()
-    UpdateESP()
-
-    local target = GetClosestTarget()
-    local myChar = LocalPlayer.Character
-
-    -- 1. 에임봇 (Aimbot)
-    if Settings.Aimbot and target and target:FindFirstChild("Head") then
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Head.Position)
+--------------------------------------------------------------------------------
+-- 5. 메인 실행 함수
+--------------------------------------------------------------------------------
+local function ProcessTurn(givenChar)
+    print("[KKCBRP] 수 읽기 계산 중... (제시어: " .. givenChar .. ")")
+    
+    local targetWord = KKCBRP_CalculateBestWord(givenChar)
+    if targetWord then
+        print("[KKCBRP] 최종 선택된 단어: " .. targetWord)
+        AutoTypeAndSubmit(targetWord)
+    else
+        warn("[KKCBRP] 단어를 찾을 수 없습니다.")
     end
+end
 
-    -- 2. 자동 회피 (Auto Dodge - 점프 및 순간 방향 전환)
-    if Settings.AutoDodge and target and myChar and myChar:FindFirstChild("HumanoidRootPart") and myChar:FindFirstChild("Humanoid") then
-        local enemyHRP = target:FindFirstChild("HumanoidRootPart")
-        local myHRP = myChar.HumanoidRootPart
-        
-        if enemyHRP then
-            local dirToMe = (myHRP.Position - enemyHRP.Position).Unit
-            local enemyLook = enemyHRP.CFrame.LookVector
-            
-            -- 적이 나를 조준하고 있을 때
-            if enemyLook:Dot(dirToMe) > 0.7 then
-                if myChar.Humanoid.FloorMaterial ~= Enum.Material.Air then
-                    myChar.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) -- 순간 점프 회피
-                    myHRP.CFrame = myHRP.CFrame * CFrame.new(3, 0, 0) -- 옆으로 순간 이동
-                end
-            end
-        end
-    end
-end)
+-- 실행 테스트
+task.wait(1)
+ProcessTurn("가")
