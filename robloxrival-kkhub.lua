@@ -1,22 +1,23 @@
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- 1. 메인 GUI 생성
+-- UI 생성
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KKHubGui"
+ScreenGui.Name = "KKHub_Rivals"
 ScreenGui.ResetOnSpawn = false
 
 pcall(function()
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end)
 
--- 2. 메인 프레임
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 350, 0, 250)
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -125)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.Size = UDim2.new(0, 320, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -26,11 +27,10 @@ local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, 8)
 MainCorner.Parent = MainFrame
 
--- 3. 타이틀 바
+-- 타이틀 바
 local TitleBar = Instance.new("Frame")
-TitleBar.Name = "TitleBar"
-TitleBar.Size = UDim2.new(1, 0, 0, 30)
-TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 TitleBar.BorderSizePixel = 0
 TitleBar.Parent = MainFrame
 
@@ -40,34 +40,32 @@ TitleCorner.Parent = TitleBar
 
 local TitleText = Instance.new("TextLabel")
 TitleText.Parent = TitleBar
-TitleText.Size = UDim2.new(1, -30, 1, 0)
+TitleText.Size = UDim2.new(1, -35, 1, 0)
 TitleText.Position = UDim2.new(0, 10, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "KK Hub v2 | Development Build"
-TitleText.TextColor3 = Color3.fromRGB(200, 200, 200)
+TitleText.Text = "KK Hub v2 | Rivals Full Release"
+TitleText.TextColor3 = Color3.fromRGB(240, 240, 240)
 TitleText.TextSize = 14
 TitleText.Font = Enum.Font.SourceSansBold
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 
--- 닫기 버튼 (오타 완벽 수정)
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Parent = TitleBar
-CloseBtn.Size = UDim2.new(0, 30, 1, 0)
-CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.Size = UDim2.new(0, 35, 1, 0)
+CloseBtn.Position = UDim2.new(1, -35, 0, 0)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(200, 80, 80)
+CloseBtn.TextColor3 = Color3.fromRGB(230, 80, 80)
 CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.SourceSansBold
-
 CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- 4. UI 컨텐츠 레이아웃
+-- 컨테이너
 local Container = Instance.new("ScrollingFrame")
-Container.Size = UDim2.new(1, -20, 1, -40)
-Container.Position = UDim2.new(0, 10, 0, 35)
+Container.Size = UDim2.new(1, -20, 1, -45)
+Container.Position = UDim2.new(0, 10, 0, 40)
 Container.BackgroundTransparency = 1
 Container.BorderSizePixel = 0
 Container.ScrollBarThickness = 4
@@ -75,89 +73,126 @@ Container.Parent = MainFrame
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Parent = Container
-UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.Padding = UDim.new(0, 6)
 
-local dodgeEnabled = true
+-- 설정 변수
+local Settings = {
+    Aimbot = false,
+    ESP = false,
+    AutoDodge = false
+}
 
-local function CreateToggleButton(name, defaultState, callback)
+local function CreateToggle(name, key)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -5, 0, 35)
-    btn.BackgroundColor3 = defaultState and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(40, 40, 40)
-    btn.Text = name .. ": " .. (defaultState and "ON" or "OFF")
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.SourceSans
+    btn.Size = UDim2.new(1, -5, 0, 38)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+    btn.Text = name .. " : OFF"
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.Font = Enum.Font.SourceSansBold
     btn.TextSize = 14
     btn.Parent = Container
 
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 4)
+    corner.CornerRadius = UDim.new(0, 6)
     corner.Parent = btn
 
-    local state = defaultState
     btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.BackgroundColor3 = state and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(40, 40, 40)
-        btn.Text = name .. ": " .. (state and "ON" or "OFF")
-        callback(state)
+        Settings[key] = not Settings[key]
+        if Settings[key] then
+            btn.BackgroundColor3 = Color3.fromRGB(45, 140, 60)
+            btn.Text = name .. " : ON"
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+            btn.Text = name .. " : OFF"
+            btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        end
     end)
 end
 
-CreateToggleButton("Auto Dodge (자동 회피)", true, function(enabled)
-    dodgeEnabled = enabled
-end)
+-- 기능 토글 버튼 등록
+CreateToggle("Aimbot (에임 조준)", "Aimbot")
+CreateToggle("ESP (적 위치 표시)", "ESP")
+CreateToggle("Auto Dodge (자동 회피)", "AutoDodge")
 
 ---------------------------------------------------------
--- 5. 게임 기능 로직 (원본 기능 구동부 완벽 재구성)
+-- 기능 실행 로직
 ---------------------------------------------------------
 
--- [기능 1] 가장 가까운 적 탐색
-local function getClosestPlayer()
-    local closestPlayer = nil
-    local shortestDistance = math.huge
+-- 가장 가까운 적 찾기
+local function GetClosestTarget()
+    local closest, minDistance = nil, math.huge
     local myChar = LocalPlayer.Character
-    
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
-    local myPos = myChar.HumanoidRootPart.Position
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (player.Character.HumanoidRootPart.Position - myPos).Magnitude
-            if dist < shortestDistance then
-                shortestDistance = dist
-                closestPlayer = player
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
+            if onScreen then
+                local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                if dist < minDistance then
+                    minDistance = dist
+                    closest = player.Character
+                end
             end
         end
     end
-    return closestPlayer
+    return closest
 end
 
--- [기능 2] 상대방이 나를 조준하는지 감지 (누락되었던 함수 추가)
-local function isBeingAimedAt(targetPlayer, myChar)
-    if not targetPlayer or not targetPlayer.Character or not myChar then return false end
-    local enemyHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
-    
-    if not enemyHRP or not myHRP then return false end
-
-    local enemyLookVector = enemyHRP.CFrame.LookVector
-    local dirToMe = (myHRP.Position - enemyHRP.Position).Unit
-    local dotProduct = enemyLookVector:Dot(dirToMe)
-
-    return dotProduct > 0.75 -- 적이 나를 바라보는 각도 감지
+-- ESP (적 테두리 표시) 업데이트
+local highlights = {}
+local function UpdateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            if Settings.ESP and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not highlights[player] then
+                    local hl = Instance.new("Highlight")
+                    hl.FillColor = Color3.fromRGB(255, 50, 50)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.5
+                    hl.Parent = player.Character
+                    highlights[player] = hl
+                end
+            else
+                if highlights[player] then
+                    highlights[player]:Destroy()
+                    highlights[player] = nil
+                end
+            end
+        end
+    end
 end
 
--- [기능 3] RenderStepped 메인 실행 루프 (자동 회피)
+-- 메인 루프 (RenderStepped)
 RunService.RenderStepped:Connect(function()
-    if not dodgeEnabled then return end
+    UpdateESP()
 
+    local target = GetClosestTarget()
     local myChar = LocalPlayer.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
 
-    local myHRP = myChar.HumanoidRootPart
-    local targetPlayer = getClosestPlayer()
+    -- 1. 에임봇 (Aimbot)
+    if Settings.Aimbot and target and target:FindFirstChild("Head") then
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Head.Position)
+    end
 
-    -- 적이 나를 조준할 때 오른쪽으로 가속 회피 (AssemblyLinearVelocity 연산 정상화)
-    if targetPlayer and isBeingAimedAt(targetPlayer, myChar) then
-        myHRP.AssemblyLinearVelocity = myHRP.CFrame.RightVector * 35
+    -- 2. 자동 회피 (Auto Dodge - 점프 및 순간 방향 전환)
+    if Settings.AutoDodge and target and myChar and myChar:FindFirstChild("HumanoidRootPart") and myChar:FindFirstChild("Humanoid") then
+        local enemyHRP = target:FindFirstChild("HumanoidRootPart")
+        local myHRP = myChar.HumanoidRootPart
+        
+        if enemyHRP then
+            local dirToMe = (myHRP.Position - enemyHRP.Position).Unit
+            local enemyLook = enemyHRP.CFrame.LookVector
+            
+            -- 적이 나를 조준하고 있을 때
+            if enemyLook:Dot(dirToMe) > 0.7 then
+                if myChar.Humanoid.FloorMaterial ~= Enum.Material.Air then
+                    myChar.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) -- 순간 점프 회피
+                    myHRP.CFrame = myHRP.CFrame * CFrame.new(3, 0, 0) -- 옆으로 순간 이동
+                end
+            end
+        end
     end
 end)
