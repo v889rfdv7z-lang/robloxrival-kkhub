@@ -1,0 +1,16 @@
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+
+-- 플레이어가 점프 버튼(스페이스바 또는 모바일 점프 버튼)을 누를 때마다 실행됨
+UserInputService.JumpRequest:Connect(function()
+    local character = player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        -- 캐릭터와 휴머노이드가 정상적으로 존재하면 강제로 점프 상태로 만듦
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
