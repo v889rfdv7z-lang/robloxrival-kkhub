@@ -1,7 +1,7 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- 1. 메인 ScreenGui 생성
+-- 1. 메인 GUI 생성
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CustomHubUI"
 ScreenGui.ResetOnSpawn = false
@@ -18,7 +18,7 @@ MainFrame.Position = UDim2.new(0.5, -275, 0.5, -175)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true -- 창 드래그 이동 가능
+MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
@@ -47,7 +47,7 @@ TitleText.Font = Enum.Font.SourceSansBold
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 TitleText.Parent = TitleBar
 
--- 닫기 (X) 버튼
+-- 닫기 버튼
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -32, 0, 2)
@@ -61,9 +61,9 @@ CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
 end)
 
--- 4. 탭 버튼 영역
+-- 4. 탭 상단 메뉴
 local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, -20, 0, 30)
+TabBar.Size = UDim2.new(1, -20, 0, 32)
 TabBar.Position = UDim2.new(0, 10, 0, 40)
 TabBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
 TabBar.BorderSizePixel = 0
@@ -74,22 +74,56 @@ TabListLayout.FillDirection = Enum.FillDirection.Horizontal
 TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabListLayout.Parent = TabBar
 
--- 탭 버튼 생성 함수
 local tabs = {"Aimbot", "Silent", "Visuals", "Misc", "Settings"}
 local tabFrames = {}
 
+-- UI요소 생성용 헬퍼 함수 (체크박스)
+local function createCheckbox(parent, text)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 25)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+
+    local box = Instance.new("TextButton")
+    box.Size = UDim2.new(0, 16, 0, 16)
+    box.Position = UDim2.new(0, 0, 0.5, -8)
+    box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    box.BorderColor3 = Color3.fromRGB(70, 70, 70)
+    box.Text = ""
+    box.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -25, 1, 0)
+    label.Position = UDim2.new(0, 25, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(180, 180, 180)
+    label.TextSize = 13
+    label.Font = Enum.Font.SourceSans
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local enabled = false
+    box.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        box.BackgroundColor3 = enabled and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(40, 40, 40)
+        box.Text = enabled and "✓" or ""
+        box.TextColor3 = Color3.fromRGB(0,0,0)
+    end)
+end
+
+-- 탭 페이지 생성 및 세부 옵션 채우기
 for i, tabName in ipairs(tabs) do
     local TabButton = Instance.new("TextButton")
     TabButton.Size = UDim2.new(1 / #tabs, 0, 1, 0)
     TabButton.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
     TabButton.BorderSizePixel = 0
     TabButton.Text = tabName
-    TabButton.TextColor3 = Color3.fromRGB(150, 150, 150)
+    TabButton.TextColor3 = (i == 1) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
     TabButton.Font = Enum.Font.SourceSans
     TabButton.TextSize = 13
     TabButton.Parent = TabBar
 
-    -- 컨텐츠 페이지
     local PageFrame = Instance.new("ScrollingFrame")
     PageFrame.Size = UDim2.new(1, -20, 1, -85)
     PageFrame.Position = UDim2.new(0, 10, 0, 75)
@@ -99,7 +133,31 @@ for i, tabName in ipairs(tabs) do
     PageFrame.Parent = MainFrame
     tabFrames[tabName] = PageFrame
 
-    -- 탭 클릭 이벤트
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0, 5)
+    listLayout.Parent = PageFrame
+
+    -- 각 탭별 세부 옵션 항목 생성
+    if tabName == "Aimbot" then
+        createCheckbox(PageFrame, "Enabled")
+        createCheckbox(PageFrame, "Wall Check")
+        createCheckbox(PageFrame, "Dynamic FOV")
+        createCheckbox(PageFrame, "Show FOV Circle")
+    elseif tabName == "Visuals" then
+        createCheckbox(PageFrame, "ESP Enabled")
+        createCheckbox(PageFrame, "Box ESP")
+        createCheckbox(PageFrame, "Name ESP")
+        createCheckbox(PageFrame, "Healthbar ESP")
+        createCheckbox(PageFrame, "Skeleton ESP")
+    elseif tabName == "Misc" then
+        createCheckbox(PageFrame, "Inf Jump")
+        createCheckbox(PageFrame, "No Recoil")
+        createCheckbox(PageFrame, "Fast Reload")
+    else
+        createCheckbox(PageFrame, "Enable " .. tabName .. " Mode")
+    end
+
     TabButton.MouseButton1Click:Connect(function()
         for _, btn in pairs(TabBar:GetChildren()) do
             if btn:IsA("TextButton") then
@@ -113,8 +171,6 @@ for i, tabName in ipairs(tabs) do
         PageFrame.Visible = true
     end)
 end
-
-print("Custom GUI 레이아웃 생성 완료!")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
@@ -170,5 +226,3 @@ end
 
 -- [사용 예시] 상대 플레이어(TargetPlayer)를 지정하여 추적 시작
 -- startFollowing(TargetPlayer, 4)
-
-
