@@ -115,3 +115,60 @@ for i, tabName in ipairs(tabs) do
 end
 
 print("Custom GUI 레이아웃 생성 완료!")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local LocalPlayer = Players.LocalPlayer
+local followConnection = nil -- 추적 루프를 저장할 변수
+
+-- 추적 시작 함수
+local function startFollowing(targetPlayer, distanceBehind)
+	distanceBehind = distanceBehind or 4 -- 뒤쪽으로 유지할 거리 (스터드)
+
+	-- 이미 추적 중이라면 기존 루프 해제
+	if followConnection then
+		followConnection:Disconnect()
+		followConnection = nil
+	end
+
+	-- 매 프레임(화면 갱신)마다 실행
+	followConnection = RunService.RenderStepped:Connect(function()
+		local myChar = LocalPlayer.Character
+		local targetChar = targetPlayer.Character
+
+		if myChar and targetChar then
+			local myHrp = myChar:FindFirstChild("HumanoidRootPart")
+			local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
+
+			-- 대상과 내 캐릭터가 모두 정상 상태일 때만 추적
+			if myHrp and targetHrp and targetChar:FindFirstChild("Humanoid").Health > 0 then
+				local targetCF = targetHrp.CFrame
+				
+				-- 상대 뒤쪽 위치 계산
+				local behindPos = targetCF.Position - (targetCF.LookVector * distanceBehind)
+				
+				-- 내 캐릭터 위치를 상대 뒤쪽으로 이동 및 상대 바라보기
+				myHrp.CFrame = CFrame.new(behindPos, targetHrp.Position)
+			else
+				-- 타겟이 죽거나 없어지면 추적 중단
+				if followConnection then
+					followConnection:Disconnect()
+					followConnection = nil
+				end
+			end
+		end
+	end)
+end
+
+-- 추적 중단 함수 (라운드가 끝나거나 필요할 때 호출)
+local function stopFollowing()
+	if followConnection then
+		followConnection:Disconnect()
+		followConnection = nil
+	end
+end
+
+-- [사용 예시] 상대 플레이어(TargetPlayer)를 지정하여 추적 시작
+-- startFollowing(TargetPlayer, 4)
+
+
