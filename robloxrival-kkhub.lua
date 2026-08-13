@@ -11,7 +11,7 @@ pcall(function()
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end)
 
--- 2. 메인 프레임 (배경 창)
+-- 2. 메인 프레임 (배경)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 550, 0, 350)
@@ -28,76 +28,55 @@ MainCorner.Parent = MainFrame
 
 -- 3. 상단 타이틀 바
 local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
 TitleBar.Size = UDim2.new(1, 0, 0, 35)
 TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 TitleBar.BorderSizePixel = 0
 TitleBar.Parent = MainFrame
 
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 8)
-TitleCorner.Parent = TitleBar
-
 local TitleText = Instance.new("TextLabel")
 TitleText.Size = UDim2.new(1, -40, 1, 0)
 TitleText.Position = UDim2.new(0, 15, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "KK Hub v2 | Beta Version"
+TitleText.Text = "KK Hub v2 | Development Build"
 TitleText.TextColor3 = Color3.fromRGB(200, 200, 200)
-TitleText.TextSize = 14
+TitleText.TextSize = 16
 TitleText.Font = Enum.Font.SourceSansBold
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 TitleText.Parent = TitleBar
 
--- 닫기 버튼
+-- 4. 닫기 버튼
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -32, 0, 2)
 CloseBtn.BackgroundTransparency = 1
-CloseBtn.Text = "✕"
+CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Color3.fromRGB(200, 80, 80)
-CloseBtn.TextSize = 16
+CloseBtn.TextSize = 18
+CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.Parent = TitleBar
 
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
 end)
 
--- 4. 탭 상단 메뉴
-local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, -20, 0, 32)
-TabBar.Position = UDim2.new(0, 10, 0, 40)
-TabBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-TabBar.BorderSizePixel = 0
-TabBar.Parent = MainFrame
+---------------------------------------------------------
+-- 5. 타겟 탐색 및 추적 함수 (문법 및 오타 수정완료)
+---------------------------------------------------------
 
-local TabListLayout = Instance.new("UIListLayout")
-TabListLayout.FillDirection = Enum.FillDirection.Horizontal
-TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabListLayout.Parent = TabBar
-
-local tabs = {"Main", "Visuals", "Misc", "Settings"}
-local tabFrames = {}
-
--- 5. 추적 기능 제어 로직
-local followConnection = nil
-
-local function stopFollowing()
-    if followConnection then
-        followConnection:Disconnect()
-        followConnection = nil
-    end
-end
-
--- 가장 가까운 플레이어를 검색하는 함수 (TargetPlayer 미정의 에러 해결)
+-- 가장 가까운 플레이어를 구하는 함수
 local function getClosestPlayer()
     local closestPlayer = nil
     local shortestDistance = math.huge
 
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+        
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (player.Character.HumanoidRootPart.Position - myPos).Magnitude
+                local targetHRP = player.Character.HumanoidRootPart
+                local dist = (targetHRP.Position - myPos).Magnitude
+                
                 if dist < shortestDistance then
                     shortestDistance = dist
                     closestPlayer = player
@@ -108,67 +87,53 @@ local function getClosestPlayer()
     return closestPlayer
 end
 
-local function startFollowing(distanceBehind)
-    stopFollowing()
+-- 조준 여부 확인 함수 (예시 구현 추가)
+local function isBeingAimedAt(targetPlayer, myChar)
+    if not targetPlayer or not targetPlayer.Character or not myChar then return false end
+    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
     
-    followConnection = RunService.RenderStepped:Connect(function()
-        local targetPlayer = get
+    if targetHRP and myHRP then
+        local lookDir = targetHRP.CFrame.LookVector
+        local dirToMe = (myHRP.Position - targetHRP.Position).Unit
+        return lookDir:Dot(dirToMe) > 0.9 -- 상대가 나를 거의 직선으로 바라볼 때 true
+    end
+    return false
+end
+
+-- FSM 상태 정의
 local EnumState = {
     CHASE = "CHASE",
     DODGE = "DODGE"
 }
 
-local currentState = EnumState.CHASE
+local currentState = EnumState.CHASE -- 대소문자 통일 (currentState)
 
--- 메인 루프 (서버 스크립트 또는 NPC AI)
-game:GetService("RunService").Heartbeat:Connect(function()
-    local target = getClosestPlayer()
-    if not target then return end
+-- 메인 업데이트 루프 (RenderStepped)
+RunService.RenderStepped:Connect(function()
+    local targetPlayer = getClosestPlayer() -- 114번 줄 미완성 문법 수정 완료
+    if not targetPlayer then return end
 
-    -- 1. 상대가 나를 조준/사격 중인지 감지
-    if isBeingAimedAt(target, myCharacter) then
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+
+    -- 조준 감지 상태 업데이트
+    if isBeingAimedAt(targetPlayer, myChar) then
         currentState = EnumState.DODGE
     else
         currentState = EnumState.CHASE
     end
 
-    -- 2. 상태에 따른 행동 수행
+    -- 상태별 동작 처리
     if currentState == EnumState.DODGE then
-        -- 사격 감지 시 옆으로 빠른 이동 (Velocitiy 또는 MoveTo)
-        dodgeToSide(myCharacter)
+        -- 회피 동작 수행 (예시: 옆으로 신속 이동)
+        local myHRP = myChar.HumanoidRootPart
+        myHRP.AssemblyLinearVelocity = myHRP.CFrame.RightVector * 30
     elseif currentState == EnumState.CHASE then
-        -- 평소에는 상대 뒤쪽 위치로 정상 이동
-        moveToTargetBehind(myCharacter, target)
+        -- 추적 동작 수행
+        local myHumanoid = myChar:FindFirstChildOfClass("Humanoid")
+        if myHumanoid and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            myHumanoid:MoveTo(targetPlayer.Character.HumanoidRootPart.Position)
+        end
     end
 end)
-            -- ServerScriptService 또는 Tool 내부의 Script 예시
-local Tool = script.Parent
-local RemoteEvent = Tool:WaitForChild("ShootEvent")
-
--- 연사 설정 (RPM: 분당 발사 수)
-local RPM = 800 -- 숫자가 높을수록 빠르게 연사됨
-local fireDelay = 60 / RPM -- 발사 간격 계산 (800 RPM 기준 약 0.075초)
-
-local canShoot = true
-
-local function onShootRequest(player, targetPosition)
-    if not canShoot then return end
-    canShoot = false
-    
-    -- 1. 총알 생성 및 발사 로직
-    local bullet = Instance.new("Part")
-    bullet.Size = Vector3.new(0.2, 0.2, 1)
-    bullet.CFrame = CFrame.new(Tool.Handle.Position, targetPosition)
-    bullet.Velocity = bullet.CFrame.LookVector * 1000 -- 탄속 설정
-    bullet.Parent = workspace
-    
-    -- 일정 시간 후 총알 삭제
-    game:GetService("Debris"):AddItem(bullet, 3)
-    
-    -- 2. 연사 간격 대기
-    task.wait(fireDelay)
-    canShoot = true
-end
-
-RemoteEvent.OnServerEvent:Connect(onShootRequest)
-
