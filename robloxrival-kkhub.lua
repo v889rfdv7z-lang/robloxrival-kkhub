@@ -1,3 +1,4 @@
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
@@ -74,155 +75,41 @@ TabListLayout.FillDirection = Enum.FillDirection.Horizontal
 TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabListLayout.Parent = TabBar
 
-local tabs = {"Aimbot", "Silent", "Visuals", "Misc", "Settings"}
+local tabs = {"Main", "Visuals", "Misc", "Settings"}
 local tabFrames = {}
 
--- UI요소 생성용 헬퍼 함수 (체크박스)
-local function createCheckbox(parent, text)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 25)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
+-- 5. 추적 기능 제어 로직
+local followConnection = nil
 
-    local box = Instance.new("TextButton")
-    box.Size = UDim2.new(0, 16, 0, 16)
-    box.Position = UDim2.new(0, 0, 0.5, -8)
-    box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    box.BorderColor3 = Color3.fromRGB(70, 70, 70)
-    box.Text = ""
-    box.Parent = frame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -25, 1, 0)
-    label.Position = UDim2.new(0, 25, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(180, 180, 180)
-    label.TextSize = 13
-    label.Font = Enum.Font.SourceSans
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local enabled = false
-    box.MouseButton1Click:Connect(function()
-        enabled = not enabled
-        box.BackgroundColor3 = enabled and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(40, 40, 40)
-        box.Text = enabled and "✓" or ""
-        box.TextColor3 = Color3.fromRGB(0,0,0)
-    end)
+local function stopFollowing()
+    if followConnection then
+        followConnection:Disconnect()
+        followConnection = nil
+    end
 end
 
--- 탭 페이지 생성 및 세부 옵션 채우기
-for i, tabName in ipairs(tabs) do
-    local TabButton = Instance.new("TextButton")
-    TabButton.Size = UDim2.new(1 / #tabs, 0, 1, 0)
-    TabButton.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    TabButton.BorderSizePixel = 0
-    TabButton.Text = tabName
-    TabButton.TextColor3 = (i == 1) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
-    TabButton.Font = Enum.Font.SourceSans
-    TabButton.TextSize = 13
-    TabButton.Parent = TabBar
+-- 가장 가까운 플레이어를 검색하는 함수 (TargetPlayer 미정의 에러 해결)
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
 
-    local PageFrame = Instance.new("ScrollingFrame")
-    PageFrame.Size = UDim2.new(1, -20, 1, -85)
-    PageFrame.Position = UDim2.new(0, 10, 0, 75)
-    PageFrame.BackgroundTransparency = 1
-    PageFrame.Visible = (i == 1)
-    PageFrame.ScrollBarThickness = 4
-    PageFrame.Parent = MainFrame
-    tabFrames[tabName] = PageFrame
-
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    listLayout.Padding = UDim.new(0, 5)
-    listLayout.Parent = PageFrame
-
-    -- 각 탭별 세부 옵션 항목 생성
-    if tabName == "Aimbot" then
-        createCheckbox(PageFrame, "Enabled")
-        createCheckbox(PageFrame, "Wall Check")
-        createCheckbox(PageFrame, "Dynamic FOV")
-        createCheckbox(PageFrame, "Show FOV Circle")
-    elseif tabName == "Visuals" then
-        createCheckbox(PageFrame, "ESP Enabled")
-        createCheckbox(PageFrame, "Box ESP")
-        createCheckbox(PageFrame, "Name ESP")
-        createCheckbox(PageFrame, "Healthbar ESP")
-        createCheckbox(PageFrame, "Skeleton ESP")
-    elseif tabName == "Misc" then
-        createCheckbox(PageFrame, "Inf Jump")
-        createCheckbox(PageFrame, "No Recoil")
-        createCheckbox(PageFrame, "Fast Reload")
-    else
-        createCheckbox(PageFrame, "Enable " .. tabName .. " Mode")
-    end
-
-    TabButton.MouseButton1Click:Connect(function()
-        for _, btn in pairs(TabBar:GetChildren()) do
-            if btn:IsA("TextButton") then
-                btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (player.Character.HumanoidRootPart.Position - myPos).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closestPlayer = player
+                end
             end
         end
-        for _, frame in pairs(tabFrames) do
-            frame.Visible = false
-        end
-        TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        PageFrame.Visible = true
-    end)
-end
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-
-local LocalPlayer = Players.LocalPlayer
-local followConnection = nil -- 추적 루프를 저장할 변수
-
--- 추적 시작 함수
-local function startFollowing(targetPlayer, distanceBehind)
-	distanceBehind = distanceBehind or 4 -- 뒤쪽으로 유지할 거리 (스터드)
-
-	-- 이미 추적 중이라면 기존 루프 해제
-	if followConnection then
-		followConnection:Disconnect()
-		followConnection = nil
-	end
-
-	-- 매 프레임(화면 갱신)마다 실행
-	followConnection = RunService.RenderStepped:Connect(function()
-		local myChar = LocalPlayer.Character
-		local targetChar = targetPlayer.Character
-
-		if myChar and targetChar then
-			local myHrp = myChar:FindFirstChild("HumanoidRootPart")
-			local targetHrp = targetChar:FindFirstChild("HumanoidRootPart")
-
-			-- 대상과 내 캐릭터가 모두 정상 상태일 때만 추적
-			if myHrp and targetHrp and targetChar:FindFirstChild("Humanoid").Health > 0 then
-				local targetCF = targetHrp.CFrame
-				
-				-- 상대 뒤쪽 위치 계산
-				local behindPos = targetCF.Position - (targetCF.LookVector * distanceBehind)
-				
-				-- 내 캐릭터 위치를 상대 뒤쪽으로 이동 및 상대 바라보기
-				myHrp.CFrame = CFrame.new(behindPos, targetHrp.Position)
-			else
-				-- 타겟이 죽거나 없어지면 추적 중단
-				if followConnection then
-					followConnection:Disconnect()
-					followConnection = nil
-				end
-			end
-		end
-	end)
+    end
+    return closestPlayer
 end
 
--- 추적 중단 함수 (라운드가 끝나거나 필요할 때 호출)
-local function stopFollowing()
-	if followConnection then
-		followConnection:Disconnect()
-		followConnection = nil
-	end
-end
-
--- [사용 예시] 상대 플레이어(TargetPlayer)를 지정하여 추적 시작
--- startFollowing(TargetPlayer, 4)
+local function startFollowing(distanceBehind)
+    stopFollowing()
+    
+    followConnection = RunService.RenderStepped:Connect(function()
+        local targetPlayer = get
