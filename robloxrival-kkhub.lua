@@ -141,3 +141,34 @@ game:GetService("RunService").Heartbeat:Connect(function()
         moveToTargetBehind(myCharacter, target)
     end
 end)
+            -- ServerScriptService 또는 Tool 내부의 Script 예시
+local Tool = script.Parent
+local RemoteEvent = Tool:WaitForChild("ShootEvent")
+
+-- 연사 설정 (RPM: 분당 발사 수)
+local RPM = 800 -- 숫자가 높을수록 빠르게 연사됨
+local fireDelay = 60 / RPM -- 발사 간격 계산 (800 RPM 기준 약 0.075초)
+
+local canShoot = true
+
+local function onShootRequest(player, targetPosition)
+    if not canShoot then return end
+    canShoot = false
+    
+    -- 1. 총알 생성 및 발사 로직
+    local bullet = Instance.new("Part")
+    bullet.Size = Vector3.new(0.2, 0.2, 1)
+    bullet.CFrame = CFrame.new(Tool.Handle.Position, targetPosition)
+    bullet.Velocity = bullet.CFrame.LookVector * 1000 -- 탄속 설정
+    bullet.Parent = workspace
+    
+    -- 일정 시간 후 총알 삭제
+    game:GetService("Debris"):AddItem(bullet, 3)
+    
+    -- 2. 연사 간격 대기
+    task.wait(fireDelay)
+    canShoot = true
+end
+
+RemoteEvent.OnServerEvent:Connect(onShootRequest)
+
