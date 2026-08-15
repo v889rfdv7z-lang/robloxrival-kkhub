@@ -3,10 +3,10 @@
 -- =======================================================================
 
 -- 1. 로더가 몰래 숨겨뒀던 '진짜 본체' 암호화 링크
-local targetUrl = "스크립트 링크"
+local targetUrl = "https://api.luarmor.net/files/v4/loaders/b477c6c716098ac8ffb336fe5b96b796.lua"
 
 -- 2. 저장될 전리품 파일 이름
-local saveFileName = "이름 입력.txt"
+local saveFileName = "킥훅.txt"
 
 local function StealScript()
     -- 익스큐터 권한 체크
